@@ -1,3 +1,4 @@
+// frontend/src/context/GameContext.jsx
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { socket } from '../socket';
 
@@ -20,6 +21,8 @@ export function GameProvider({ children }) {
   const [players, setPlayers] = useState([]); // dari room:update
   const [roomLimits, setRoomLimits] = useState({ minPlayers: 7, maxPlayers: 30 });
   const [joinError, setJoinError] = useState('');
+  // Pesan buat user pas dia ke-kick host, atau ditinggal karena belum ready pas game mulai
+  const [sessionNotice, setSessionNotice] = useState('');
 
   // ---- Game state ----
   const [myRole, setMyRole] = useState(null); // { role, team, description }
@@ -35,6 +38,30 @@ export function GameProvider({ children }) {
   const [loverPartner, setLoverPartner] = useState(null);
   const [hunterMustShoot, setHunterMustShoot] = useState(false);
   const [gameResult, setGameResult] = useState(null); // { winner, players }
+
+  const persistSession = (code, id) => {
+    setRoomCode(code);
+    setPlayerId(id);
+    localStorage.setItem(LS_KEYS.roomCode, code);
+    localStorage.setItem(LS_KEYS.playerId, id);
+  };
+
+  const clearLocalGameState = () => {
+    setRoomStatus('lobby');
+    setPlayers([]);
+    setMyRole(null);
+    setTeammates([]);
+    setPhase(null);
+    setRound(0);
+    setChatMessages([]);
+    setLastNightResult(null);
+    setLastElimination(undefined);
+    setSeerResult(null);
+    setThiefCards(null);
+    setLoverPartner(null);
+    setHunterMustShoot(false);
+    setGameResult(null);
+  };
 
   // ---- Setup listener sekali di awal ----
   useEffect(() => {
@@ -74,6 +101,25 @@ export function GameProvider({ children }) {
       setRoomStatus('ended');
     };
 
+    // Di-kick host, atau ditinggal karena belum ready pas game mulai —
+    // dua-duanya berujung sama: sesi lokal dibersihkan & tampilkan pesan.
+    const onRoomKicked = (data) => {
+      setSessionNotice(data?.message || 'Kamu dikeluarkan dari room.');
+      localStorage.removeItem(LS_KEYS.roomCode);
+      localStorage.removeItem(LS_KEYS.playerId);
+      setRoomCode(null);
+      setPlayerId(null);
+      clearLocalGameState();
+    };
+    const onRoomLeftBehind = (data) => {
+      setSessionNotice(data?.message || 'Kamu ditinggal karena belum ready.');
+      localStorage.removeItem(LS_KEYS.roomCode);
+      localStorage.removeItem(LS_KEYS.playerId);
+      setRoomCode(null);
+      setPlayerId(null);
+      clearLocalGameState();
+    };
+
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('room:update', onRoomUpdate);
@@ -89,6 +135,8 @@ export function GameProvider({ children }) {
     socket.on('cupid:loversAssigned', onLoversAssigned);
     socket.on('hunter:mustShoot', onHunterMustShoot);
     socket.on('game:end', onGameEnd);
+    socket.on('room:kicked', onRoomKicked);
+    socket.on('room:leftBehind', onRoomLeftBehind);
 
     return () => {
       socket.off('connect', onConnect);
@@ -106,6 +154,8 @@ export function GameProvider({ children }) {
       socket.off('cupid:loversAssigned', onLoversAssigned);
       socket.off('hunter:mustShoot', onHunterMustShoot);
       socket.off('game:end', onGameEnd);
+      socket.off('room:kicked', onRoomKicked);
+      socket.off('room:leftBehind', onRoomLeftBehind);
     };
   }, []);
 
@@ -114,7 +164,7 @@ export function GameProvider({ children }) {
     if (!connected || !roomCode || !playerId) return;
     socket.emit('room:rejoin', { roomCode, playerId }, (res) => {
       if (!res?.ok) {
-        // Sesi sudah tidak valid (room dibubarkan dll), bersihkan.
+        // Sesi sudah tidak valid (room dibubarkan, atau grace period disconnect sudah habis), bersihkan.
         localStorage.removeItem(LS_KEYS.roomCode);
         localStorage.removeItem(LS_KEYS.playerId);
         setRoomCode(null);
@@ -128,13 +178,6 @@ export function GameProvider({ children }) {
     setPlayerNameState(name);
     localStorage.setItem(LS_KEYS.name, name);
   }, []);
-
-  const persistSession = (code, id) => {
-    setRoomCode(code);
-    setPlayerId(id);
-    localStorage.setItem(LS_KEYS.roomCode, code);
-    localStorage.setItem(LS_KEYS.playerId, id);
-  };
 
   const createRoom = useCallback((name) => {
     return new Promise((resolve) => {
@@ -164,31 +207,30 @@ export function GameProvider({ children }) {
     });
   }, []);
 
+  // Keluar room SENGAJA (tombol "Leave Room"), beda dari cuma nutup tab/koneksi putus.
+  // Kirim dulu ke server biar slotnya beneran kekosongin, baru bersihin state lokal.
   const leaveSession = useCallback(() => {
+    socket.emit('room:leave');
     localStorage.removeItem(LS_KEYS.roomCode);
     localStorage.removeItem(LS_KEYS.playerId);
     setRoomCode(null);
     setPlayerId(null);
-    setRoomStatus('lobby');
-    setPlayers([]);
-    setMyRole(null);
-    setTeammates([]);
-    setPhase(null);
-    setChatMessages([]);
-    setLastNightResult(null);
-    setLastElimination(undefined);
-    setSeerResult(null);
-    setThiefCards(null);
-    setLoverPartner(null);
-    setHunterMustShoot(false);
-    setGameResult(null);
+    clearLocalGameState();
   }, []);
+
+  const clearSessionNotice = useCallback(() => setSessionNotice(''), []);
 
   const toggleReady = useCallback(() => socket.emit('player:ready'), []);
 
   const startGame = useCallback(() => {
     return new Promise((resolve) => {
       socket.emit('game:start', null, (res) => resolve(res));
+    });
+  }, []);
+
+  const kickPlayer = useCallback((targetId) => {
+    return new Promise((resolve) => {
+      socket.emit('player:kick', { targetId }, (res) => resolve(res));
     });
   }, []);
 
@@ -212,8 +254,9 @@ export function GameProvider({ children }) {
     playerName, setPlayerName,
     roomCode, playerId,
     roomStatus, players, roomLimits, joinError,
+    sessionNotice, clearSessionNotice,
     createRoom, joinRoom, leaveSession,
-    toggleReady, startGame,
+    toggleReady, startGame, kickPlayer,
     me, isHost,
     myRole, teammates,
     phase, timeLeft, round,

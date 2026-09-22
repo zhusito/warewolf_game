@@ -63,3 +63,20 @@ Sebelum dipakai temanmu, coba dulu sendiri:
 - Setelah deploy, update:
   - `backend/.env` → `CLIENT_ORIGIN` isi URL frontend yang sudah live
   - `frontend/.env` → `VITE_BACKEND_URL` isi URL backend yang sudah live
+
+
+## update tanggal 20/09/26 jam 22,54 wib
+ 
+ jadi setelah saya masukan kedalam vercel dan sub domain nya terjadi beberapa masalah
+
+1.  owner dari room sering ke luar sendiri dari room nya
+
+2. saat join lagi malah tejadi penumpukan pada player nya
+3.seperti nya perlu pengurangan jumlah minimum player masih pertimbangan
+4. fitur kick player
+5. tetep bisa play walaupun ada yang gak ready, yang gak ready di tinggal aja 
+6. pada menu waiting room tidak muncul jumlah anggota yang siap
+7. add fitur leave room
+8. kadang suka kembali ke room sebelum nya saat berpindah-pindah room
+
+saat ini gw lagi ngefix bersama claude tentang problem ini sepertinya besok juga udh clear sih tapi males nya adalah karna gw gak punya cicd apakah w harus gw buat ya?

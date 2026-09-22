@@ -1,7 +1,14 @@
+// backend/src/Room.js
 import { ROLES, assignRoles } from './roles.js';
 
 export const MIN_PLAYERS = 7;
 export const MAX_PLAYERS = 30;
+
+// Berapa lama (ms) kasih toleransi kalau koneksi seorang pemain putus pas masih
+// di LOBBY (belum mulai game) sebelum dia beneran dihapus dari room. Ini yang
+// nyelametin host/pemain dari "kelempar keluar sendiri" gara-gara wifi kedip
+// sebentar atau HP dikunci.
+export const DISCONNECT_GRACE_MS = 20000; // 20 detik
 
 // Durasi tiap fase (detik). Sesuaikan saja kalau mau samakan dengan timer di frontend.
 // Set env FAST_PHASES=1 untuk mempercepat durasi (dipakai saat testing/simulasi).
@@ -23,13 +30,16 @@ export class Room {
     this.phase = null; // 'Malam' | 'Diskusi' | 'Voting' | 'Elimination'
     this.timeLeft = 0;
     this.timerHandle = null;
-    this.round = 0; // bertambah tiap kali fase Malam dimulai
+    this.round = 0; // sudah malam ke berapa
 
     this.votes = new Map(); // voterId -> targetId
     this.nightActions = {}; // dikumpulkan ulang tiap malam, lihat startPhase()
     this.extraCards = []; // 2 role cadangan untuk Thief (kalau ada)
 
     this.chat = [];
+
+    // playerId -> timer setTimeout, buat grace period disconnect di lobby
+    this.disconnectTimers = new Map();
   }
 
   // ---------- Room / lobby management ----------
@@ -54,12 +64,14 @@ export class Room {
       loverOf: null,
       extraLife: false, // Strong Villager
       witchHealUsed: false,
-      witchPoisonUsed: false
+      witchPoisonUsed: false,
+      hunterShotUsed: false
     });
     this.broadcastRoomUpdate();
   }
 
   removePlayer(playerId) {
+    this.cancelRemoval(playerId);
     this.players.delete(playerId);
     if (this.hostId === playerId) {
       const next = this.players.keys().next();
@@ -68,20 +80,72 @@ export class Room {
     this.broadcastRoomUpdate();
   }
 
+  // Dipanggil host lewat event 'player:kick'. Melempar Error kalau tidak sah.
+  // Return socketId pemain yang di-kick, biar server.js bisa lepas dia dari grup socket.io.
+  kickPlayer(requesterId, targetId) {
+    if (requesterId !== this.hostId) {
+      throw new Error('Cuma host yang bisa nge-kick pemain.');
+    }
+    if (requesterId === targetId) {
+      throw new Error('Tidak bisa kick diri sendiri.');
+    }
+    const target = this.players.get(targetId);
+    if (!target) {
+      throw new Error('Pemain tidak ditemukan.');
+    }
+
+    this.emitToPlayer(targetId, 'room:kicked', {
+      message: 'Kamu dikeluarkan dari room oleh host.'
+    });
+
+    const socketId = target.socketId;
+    this.removePlayer(targetId);
+    return socketId;
+  }
+
+  // Koneksi socket seorang pemain putus. Kalau masih di lobby, kasih grace period
+  // dulu (jangan langsung dihapus) — biar refresh/wifi kedip sebentar tidak
+  // langsung nendang dia keluar dari room.
   markDisconnected(playerId) {
     const p = this.players.get(playerId);
-    if (p) {
-      p.connected = false;
-      this.broadcastRoomUpdate();
+    if (!p) return;
+    p.connected = false;
+    this.broadcastRoomUpdate();
+
+    if (this.status === 'lobby') {
+      this.scheduleRemoval(playerId);
     }
+    // Kalau status 'in-progress', sengaja TIDAK dihapus — biar dia bisa
+    // room:rejoin kapan saja selama game masih berlangsung.
   }
 
   markReconnected(playerId, socketId) {
     const p = this.players.get(playerId);
-    if (p) {
-      p.connected = true;
-      p.socketId = socketId;
-      this.broadcastRoomUpdate();
+    if (!p) return;
+    this.cancelRemoval(playerId); // batalkan rencana penghapusan kalau sempat dijadwalkan
+    p.connected = true;
+    p.socketId = socketId;
+    this.broadcastRoomUpdate();
+  }
+
+  scheduleRemoval(playerId) {
+    this.cancelRemoval(playerId); // jangan sampai numpuk timer buat orang yang sama
+    const timer = setTimeout(() => {
+      this.disconnectTimers.delete(playerId);
+      const p = this.players.get(playerId);
+      // Cek ulang: masih ada & masih beneran disconnected (bukan sudah reconnect lalu disconnect lagi barusan)
+      if (p && !p.connected) {
+        this.removePlayer(playerId);
+      }
+    }, DISCONNECT_GRACE_MS);
+    this.disconnectTimers.set(playerId, timer);
+  }
+
+  cancelRemoval(playerId) {
+    const timer = this.disconnectTimers.get(playerId);
+    if (timer) {
+      clearTimeout(timer);
+      this.disconnectTimers.delete(playerId);
     }
   }
 
@@ -96,13 +160,13 @@ export class Room {
     return this.players.size === 0;
   }
 
+  // Syarat mulai: minimal MIN_PLAYERS yang READY (bukan semua orang di room harus ready).
+  // Yang belum ready boleh tetap nangkring di lobby, dan akan ditinggal otomatis
+  // begitu host menekan "Mulai Game" (lihat startGame()).
   canStart() {
     const players = [...this.players.values()];
-    return (
-      this.status === 'lobby' &&
-      players.length >= MIN_PLAYERS &&
-      players.every(p => p.ready)
-    );
+    const readyCount = players.filter(p => p.ready).length;
+    return this.status === 'lobby' && readyCount >= MIN_PLAYERS;
   }
 
   toPublicPlayerList() {
@@ -169,6 +233,15 @@ export class Room {
 
   startGame() {
     if (!this.canStart()) throw new Error('Syarat mulai game belum terpenuhi.');
+
+    // Pemain yang belum ready DITINGGAL (dikeluarkan) sebelum role dibagikan.
+    const notReady = [...this.players.values()].filter(p => !p.ready);
+    notReady.forEach((p) => {
+      this.emitToPlayer(p.id, 'room:leftBehind', {
+        message: 'Kamu ditinggal karena belum ready saat host memulai game.'
+      });
+      this.removePlayer(p.id);
+    });
 
     this.status = 'in-progress';
     const playerIds = [...this.players.keys()];
@@ -662,5 +735,7 @@ export class Room {
 
   destroy() {
     clearInterval(this.timerHandle);
+    for (const timer of this.disconnectTimers.values()) clearTimeout(timer);
+    this.disconnectTimers.clear();
   }
 }
