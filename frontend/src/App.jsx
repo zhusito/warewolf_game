@@ -5,6 +5,7 @@ import PrivateRoom from './pages/PrivateRoom';
 import WaitingRoom from './pages/WaitingRoom';
 import GameArea from './pages/GameArea';
 import Result from './pages/Result';
+import HowToPlay from './pages/HowToPlay';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { playClickSound, initAudio, playBGM, resumeBGM } from './utils/soundManager';
@@ -66,6 +67,7 @@ function App() {
           <Route path="/room" element={<WaitingRoom />} />
           <Route path="/game" element={<GameArea />} />
           <Route path="/result" element={<Result />} />
+          <Route path="/how-to-play" element={<HowToPlay />} />
         </Routes>
       </BrowserRouter>
     </GameProvider>

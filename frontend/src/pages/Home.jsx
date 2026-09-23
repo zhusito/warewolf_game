@@ -54,9 +54,21 @@ export default function Home() {
       </div>
 
       <button
+        onClick={() => navigate('/how-to-play')}
+        className="btn btn-secondary animate-slide-up stagger-3"
+        style={{ marginTop: '16px' }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+        Cara Main
+      </button>
+
+      <button
         onClick={() => navigate('/')}
         className="btn btn-secondary"
-        style={{ marginTop: '24px' }}
+        style={{ marginTop: '12px' }}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="m15 18-6-6 6-6"></path>

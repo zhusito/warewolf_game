@@ -32,6 +32,8 @@ export default function GameArea() {
   const me = players.find(p => p.id === playerId);
   const roleName = myRole?.role;
   const roleImage = getRoleImage(roleName);
+  const isEvilTeam = myRole?.team === 'werewolf' || myRole?.team === 'vampire';
+  const chatLocked = phase === 'Malam' && !isEvilTeam;
 
   const alivePlayersExceptMe = useMemo(
     () => players.filter(p => p.alive && p.id !== playerId),
@@ -197,8 +199,8 @@ export default function GameArea() {
 
   return (
     <div className="animate-fade-in" style={{
-      width: 'calc(100% + 40px)', height: '100vh', display: 'flex', flexDirection: 'column',
-      margin: '-20px -20px -20px -20px', background: '#0B0F19'
+      width: 'calc(100% + 40px)', height: '100vh', maxHeight: '100dvh', display: 'flex', flexDirection: 'column',
+      margin: '-20px -20px -20px -20px', background: '#0B0F19', overflow: 'hidden'
     }}>
 
       {/* Elimination Reveal Modal */}
@@ -351,10 +353,13 @@ export default function GameArea() {
                 ) : (
                   <div key={msg.id} className={`chat-bubble-wrapper ${msg.senderId === playerId ? 'mine' : 'other'}`}>
                     <div className={`chat-bubble ${msg.senderId === playerId ? 'mine' : 'other'}`} style={{
-                      background: msg.senderId === playerId ? 'var(--primary-color)' : 'rgba(30,41,59,0.8)',
+                      background: msg.isNightChat ? 'rgba(127,29,29,0.55)' : (msg.senderId === playerId ? 'var(--primary-color)' : 'rgba(30,41,59,0.8)'),
+                      border: msg.isNightChat ? '1px solid rgba(248,113,113,0.4)' : 'none',
                       backdropFilter: 'blur(4px)'
                     }}>
-                      {msg.senderId !== playerId && <span className="chat-sender">{msg.sender}</span>}
+                      {msg.senderId !== playerId && (
+                        <span className="chat-sender">{msg.isNightChat ? `🌙 ${msg.sender}` : msg.sender}</span>
+                      )}
                       {msg.text}
                       <span className="chat-time">{msg.time}</span>
                     </div>
@@ -371,11 +376,15 @@ export default function GameArea() {
           }}>
             <input
               type="text" value={inputText} onChange={(e) => setInputText(e.target.value)}
-              placeholder={phase === 'Malam' ? 'Tidak bisa mengirim pesan...' : (me?.alive ? 'Ketik pesan...' : 'Kamu sudah tereliminasi')}
-              disabled={phase === 'Malam' || !me?.alive}
-              style={{ margin: 0, flex: 1, borderRadius: '24px', padding: '12px 16px', fontSize: '0.95rem', background: phase === 'Malam' ? '#334155' : '#0F172A', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}
+              placeholder={
+                !me?.alive ? 'Kamu sudah tereliminasi'
+                  : phase === 'Malam' ? (isEvilTeam ? '🌙 Chat rahasia sesama tim jahat...' : 'Tidak bisa mengirim pesan...')
+                  : 'Ketik pesan...'
+              }
+              disabled={chatLocked || !me?.alive}
+              style={{ margin: 0, flex: 1, borderRadius: '24px', padding: '12px 16px', fontSize: '0.95rem', background: chatLocked ? '#334155' : (phase === 'Malam' ? '#450A0A' : '#0F172A'), color: 'white', border: phase === 'Malam' && isEvilTeam ? '1px solid rgba(248,113,113,0.5)' : '1px solid rgba(255,255,255,0.1)' }}
             />
-            <button type="submit" className="btn btn-primary" style={{ width: '48px', height: '48px', padding: 0, marginBottom: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} disabled={!inputText.trim() || phase === 'Malam' || !me?.alive}>
+            <button type="submit" className="btn btn-primary" style={{ width: '48px', height: '48px', padding: 0, marginBottom: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} disabled={!inputText.trim() || chatLocked || !me?.alive}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'translateX(-2px)' }}>
                 <line x1="22" y1="2" x2="11" y2="13"></line>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
