@@ -19,6 +19,9 @@ const PHASE_DURATION = FAST
 
 const WEREWOLF_TEAM_ROLES = new Set(['WEREWOLF', 'ALPHA_WEREWOLF']);
 
+// Tim yang boleh chat rahasia pas Malam (anonim, terpisah dari chat umum siang)
+const EVIL_CHAT_TEAMS = new Set(['werewolf', 'vampire']);
+
 export class Room {
   constructor(code, io) {
     this.code = code;
@@ -203,7 +206,30 @@ export class Room {
   sendChat(playerId, text) {
     const p = this.players.get(playerId);
     if (!p || !p.alive) return;
-    if (this.phase === 'Malam') return; // sesuai frontend: chat dikunci saat Malam
+
+    if (this.phase === 'Malam') {
+      const roleData = ROLES[p.role];
+      // Cuma tim jahat (Werewolf/Alpha/Vampire) yang boleh chat pas Malam, sisanya tetap terkunci.
+      if (!roleData || !EVIL_CHAT_TEAMS.has(roleData.team)) return;
+
+      const msg = {
+        id: Date.now() + Math.random(),
+        sender: roleData.name, // anonim: pakai nama role, bukan nama asli pemain
+        senderId: p.id,
+        text,
+        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        isSystem: false,
+        isNightChat: true
+      };
+
+      // Cuma dikirim ke sesama anggota tim jahat yang masih hidup, bukan broadcast ke semua room.
+      const recipients = [...this.players.values()].filter(pl => {
+        const rd = ROLES[pl.role];
+        return pl.alive && rd && EVIL_CHAT_TEAMS.has(rd.team);
+      });
+      recipients.forEach(r => this.emitToPlayer(r.id, 'chat:message', msg));
+      return;
+    }
 
     const msg = {
       id: Date.now() + Math.random(),
