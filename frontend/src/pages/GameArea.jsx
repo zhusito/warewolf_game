@@ -33,7 +33,8 @@ export default function GameArea() {
   const roleName = myRole?.role;
   const roleImage = getRoleImage(roleName);
   const isEvilTeam = myRole?.team === 'werewolf' || myRole?.team === 'vampire';
-  const chatLocked = phase === 'Malam' && !isEvilTeam;
+  const isAlive = me?.alive ?? false;
+  const chatLocked = isAlive && phase === 'Malam' && !isEvilTeam;
 
   const alivePlayersExceptMe = useMemo(
     () => players.filter(p => p.alive && p.id !== playerId),
@@ -87,6 +88,7 @@ export default function GameArea() {
   };
 
   const handleVote = (targetId) => {
+    if (!isAlive) return;
     setVotedPlayer(targetId);
     castVote(targetId);
     setTimeout(() => setShowVoteDrawer(false), 500);
@@ -312,7 +314,7 @@ export default function GameArea() {
                   🌙 Aksi
                 </button>
               )}
-              {phase === 'Voting' ? (
+              {phase === 'Voting' && isAlive ? (
                 <button onClick={() => setShowVoteDrawer(true)}
                   style={{ background: 'var(--danger-color)', border: 'none', color: 'white', borderRadius: '8px', padding: '6px 10px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>
                   🗳️ Vote
@@ -377,14 +379,14 @@ export default function GameArea() {
             <input
               type="text" value={inputText} onChange={(e) => setInputText(e.target.value)}
               placeholder={
-                !me?.alive ? 'Kamu sudah tereliminasi'
+                !isAlive ? 'Chat khusus pemain mati...'
                   : phase === 'Malam' ? (isEvilTeam ? '🌙 Chat rahasia sesama tim jahat...' : 'Tidak bisa mengirim pesan...')
                   : 'Ketik pesan...'
               }
-              disabled={chatLocked || !me?.alive}
-              style={{ margin: 0, flex: 1, borderRadius: '24px', padding: '12px 16px', fontSize: '0.95rem', background: chatLocked ? '#334155' : (phase === 'Malam' ? '#450A0A' : '#0F172A'), color: 'white', border: phase === 'Malam' && isEvilTeam ? '1px solid rgba(248,113,113,0.5)' : '1px solid rgba(255,255,255,0.1)' }}
+              disabled={chatLocked}
+              style={{ margin: 0, flex: 1, borderRadius: '24px', padding: '12px 16px', fontSize: '0.95rem', background: !isAlive ? '#111827' : (chatLocked ? '#334155' : (phase === 'Malam' ? '#450A0A' : '#0F172A')), color: 'white', border: !isAlive ? '1px solid rgba(148,163,184,0.5)' : (phase === 'Malam' && isEvilTeam ? '1px solid rgba(248,113,113,0.5)' : '1px solid rgba(255,255,255,0.1)') }}
             />
-            <button type="submit" className="btn btn-primary" style={{ width: '48px', height: '48px', padding: 0, marginBottom: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} disabled={!inputText.trim() || chatLocked || !me?.alive}>
+            <button type="submit" className="btn btn-primary" style={{ width: '48px', height: '48px', padding: 0, marginBottom: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} disabled={!inputText.trim() || chatLocked}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'translateX(-2px)' }}>
                 <line x1="22" y1="2" x2="11" y2="13"></line>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -426,7 +428,7 @@ export default function GameArea() {
       )}
 
       {/* Vote Drawer */}
-      {showVoteDrawer && phase === 'Voting' && (
+      {showVoteDrawer && phase === 'Voting' && isAlive && (
         <div className="drawer-overlay" style={{ zIndex: 900 }} onClick={() => setShowVoteDrawer(false)}>
           <div className="drawer-content" onClick={e => e.stopPropagation()}>
             <div className="drawer-header">

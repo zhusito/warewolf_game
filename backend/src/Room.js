@@ -34,6 +34,7 @@ export class Room {
     this.timeLeft = 0;
     this.timerHandle = null;
     this.round = 0; // sudah malam ke berapa
+    this.winner = null;
 
     this.votes = new Map(); // voterId -> targetId
     this.nightActions = {}; // dikumpulkan ulang tiap malam, lihat startPhase()
@@ -129,6 +130,31 @@ export class Room {
     p.connected = true;
     p.socketId = socketId;
     this.broadcastRoomUpdate();
+
+    // Refresh browser membuat client kehilangan seluruh state React. Kirim ulang
+    // state privat dan fase aktif supaya layar tidak berhenti di "pembagian role".
+    this.emitToPlayer(playerId, 'room:update', this.getRoomUpdate());
+    if (p.role) {
+      this.emitToPlayer(playerId, 'game:role', {
+        role: ROLES[p.role].name,
+        team: ROLES[p.role].team,
+        description: ROLES[p.role].description
+      });
+      this.sendTeammatesToPlayer(playerId);
+    }
+    if (this.phase) {
+      this.emitToPlayer(playerId, 'phase:change', {
+        phase: this.phase,
+        timeLeft: this.timeLeft,
+        round: this.round
+      });
+    }
+    if (this.status === 'ended') {
+      this.emitToPlayer(playerId, 'game:end', {
+        winner: this.winner,
+        players: this.toResultPlayerList()
+      });
+    }
   }
 
   scheduleRemoval(playerId) {
@@ -184,14 +210,18 @@ export class Room {
   }
 
   broadcastRoomUpdate() {
-    this.io.to(this.code).emit('room:update', {
+    this.io.to(this.code).emit('room:update', this.getRoomUpdate());
+  }
+
+  getRoomUpdate() {
+    return {
       code: this.code,
       hostId: this.hostId,
       status: this.status,
       players: this.toPublicPlayerList(),
       minPlayers: MIN_PLAYERS,
       maxPlayers: MAX_PLAYERS
-    });
+    };
   }
 
   emitToPlayer(playerId, event, payload) {
@@ -205,7 +235,25 @@ export class Room {
 
   sendChat(playerId, text) {
     const p = this.players.get(playerId);
-    if (!p || !p.alive) return;
+    if (!p) return;
+
+    // Pemain yang sudah mati tetap punya kanal umum sendiri. Pesannya hanya
+    // dikirim ke pemain mati lain, tidak pernah ke pemain yang masih hidup.
+    if (!p.alive) {
+      const msg = {
+        id: Date.now() + Math.random(),
+        sender: p.name,
+        senderId: p.id,
+        text,
+        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        isSystem: false,
+        isDeadChat: true
+      };
+      [...this.players.values()]
+        .filter(pl => !pl.alive)
+        .forEach(deadPlayer => this.emitToPlayer(deadPlayer.id, 'chat:message', msg));
+      return;
+    }
 
     if (this.phase === 'Malam') {
       const roleData = ROLES[p.role];
@@ -253,6 +301,19 @@ export class Room {
     };
     this.chat.push(msg);
     this.io.to(this.code).emit('chat:message', msg);
+  }
+
+  sendTeammatesToPlayer(playerId) {
+    const player = this.players.get(playerId);
+    if (!player || !player.role) return;
+    const roleSet = WEREWOLF_TEAM_ROLES.has(player.role)
+      ? WEREWOLF_TEAM_ROLES
+      : player.role === 'VAMPIRE' ? new Set(['VAMPIRE']) : null;
+    if (!roleSet) return;
+    const teammates = [...this.players.values()]
+      .filter(p => roleSet.has(p.role) && p.id !== playerId)
+      .map(p => ({ id: p.id, name: p.name, role: ROLES[p.role].name }));
+    this.emitToPlayer(playerId, 'game:teammates', { teammates });
   }
 
   // ---------- Game start ----------
@@ -746,17 +807,20 @@ export class Room {
     clearInterval(this.timerHandle);
     this.status = 'ended';
     this.phase = null;
+    this.winner = winner;
 
-    const players = [...this.players.values()].map(p => ({
+    this.io.to(this.code).emit('game:end', { winner, players: this.toResultPlayerList() });
+    this.broadcastRoomUpdate();
+  }
+
+  toResultPlayerList() {
+    return [...this.players.values()].map(p => ({
       id: p.id,
       name: p.name,
       role: ROLES[p.role].name,
       team: ROLES[p.role].team,
       alive: p.alive
     }));
-
-    this.io.to(this.code).emit('game:end', { winner, players });
-    this.broadcastRoomUpdate();
   }
 
   destroy() {

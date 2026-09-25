@@ -1,116 +1,142 @@
 # Werewolf Backend
 
-Backend real-time (room + logic game) untuk game Werewolf, dipasangkan dengan
-frontend React `gamembti`. Dibuat dengan **Node.js + Express + Socket.io**,
-state disimpan **in-memory** (cukup untuk MVP — data hilang kalau server restart).
+Backend untuk game Werewolf multiplayer yang dibuat dengan Node.js, Express, dan Socket.io.
+State room dan permainan disimpan di memory server, sehingga cocok untuk MVP dan demo lokal.
 
-## Fitur
+## Fitur utama
 
-- Buat & join room pakai kode 6 karakter (mirip kode game party biasa)
-- Sistem ready sebelum game mulai (host yang mulai, minimal 7 pemain, semua harus ready)
-- Assign role otomatis & acak: **Werewolf, Seer, Guardian, Villager**
-  (role lain di asset frontend seperti Witch/Hunter/Cupid/dll belum diimplementasikan —
-  tinggal ditambah di `src/roles.js` + `src/Room.js` kalau logic-nya sudah siap di frontend)
-- State machine fase penuh di server: **Malam → Diskusi → Voting → Elimination → (ulang)**
-- Night action: Werewolf membunuh, Guardian melindungi, Seer mengintip role
-- Voting + reveal role yang tereliminasi
-- Deteksi kondisi menang otomatis (Werewolf vs Villager)
-- Reconnect: kalau koneksi putus saat game jalan, slot pemain tidak langsung hilang
-  (bisa `room:rejoin` pakai `roomCode` + `playerId` yang sama)
+- Buat room dan join room dengan kode room
+- Lobby dengan status ready dan host-controlled start
+- Host bisa kick player
+- Player bisa leave room secara sengaja
+- Reconnect / rejoin session jika koneksi terputus
+- Timer fase server-side untuk game loop
+- Event chat, vote, night action, dan eliminasi
+- Auto win condition: Werewolves vs Villagers
+- Support room cleanup saat disconnect grace period habis
 
-## Menjalankan
+## Stack
+
+- Node.js
+- Express
+- Socket.io
+- CORS
+
+## Menjalankan backend
 
 ```bash
+cd backend
 npm install
-cp .env.example .env   # sesuaikan CLIENT_ORIGIN kalau perlu
+cp .env.example .env
 npm start
 ```
 
-Server jalan di `http://localhost:3001` (atau sesuai `PORT` di `.env`).
-Cek `GET /health` untuk memastikan server hidup.
+Server berjalan di:
 
-### Testing tanpa frontend
+- `http://localhost:3001`
 
-Ada script simulasi yang jalanin 7 "pemain" palsu lewat `socket.io-client`,
-dari room dibuat sampai game selesai — berguna buat ngetes perubahan di
-`src/Room.js` tanpa perlu buka browser:
+Untuk mengecek server hidup:
 
 ```bash
-# Terminal 1
-FAST_PHASES=1 npm start   # FAST_PHASES mempercepat durasi fase jadi hitungan detik
+curl http://localhost:3001/health
+```
 
-# Terminal 2
+## Environment
+
+File `backend/.env`:
+
+```env
+PORT=3001
+CLIENT_ORIGIN=*
+```
+
+Penjelasan:
+
+- `PORT` = port yang dipakai server
+- `CLIENT_ORIGIN` = origin frontend yang diizinkan oleh CORS
+
+Untuk production, ganti `CLIENT_ORIGIN` menjadi URL frontend yang benar.
+
+## Testing
+
+Ada script simulasi game end-to-end yang menjalankan banyak pemain palsu melalui socket.io-client:
+
+```bash
 npm run test:sim
+```
+
+Untuk memercepat fase permainan, bisa dijalankan dengan:
+
+```bash
+FAST_PHASES=1 npm start
 ```
 
 ## Struktur project
 
-```
-server.js            # entry point: Express + Socket.io + wiring semua event
-src/roles.js          # definisi role & logic pembagian role acak
-src/Room.js           # state machine 1 room (lobby, fase, voting, win condition)
-src/RoomManager.js    # buat/cari/hapus room, generate kode room
-tests/simulate-full-game.js  # simulasi end-to-end pakai socket.io-client
-```
-
-## Cara integrasi ke frontend `gamembti`
-
-Di frontend, install client-nya:
-
 ```bash
-npm install socket.io-client
+backend/
+├── .env.example
+├── package.json
+├── server.js
+├── src/
+│   ├── Room.js
+│   ├── RoomManager.js
+│   └── roles.js
+├── tests/
+│   └── simulate-full-game.js
+└── README.md
 ```
 
-Contoh koneksi dasar:
+## Socket events
 
-```js
-import { io } from 'socket.io-client';
+### Client ke server
 
-const socket = io('http://localhost:3001'); // ganti sesuai URL backend saat deploy
-```
+- `room:create` → `{ playerName }`
+- `room:join` → `{ roomCode, playerName }`
+- `room:rejoin` → `{ roomCode, playerId }`
+- `room:leave` → tanpa payload
+- `player:ready` → tanpa payload
+- `player:kick` → `{ targetId }`
+- `game:start` → tanpa payload
+- `chat:send` → `{ text }`
+- `vote:cast` → `{ targetId }`
+- `night:action` → `{ ...payload }`
+- `thief:choice` → `{ cardIndex }`
+- `hunter:shoot` → `{ targetId }`
 
-### Event yang dikirim CLIENT → SERVER
+### Server ke client
 
-| Event | Payload | Keterangan |
-|---|---|---|
-| `room:create` | `{ playerName }` | Buat room baru. Callback: `{ ok, roomCode, playerId }` |
-| `room:join` | `{ roomCode, playerName }` | Join room. Callback: `{ ok, roomCode, playerId }` atau `{ ok:false, error }` |
-| `room:rejoin` | `{ roomCode, playerId }` | Dipakai saat reconnect (simpan `playerId` & `roomCode` di localStorage) |
-| `player:ready` | *(tanpa payload)* | Toggle status ready pemain sendiri |
-| `game:start` | *(tanpa payload)* | Hanya berlaku kalau dikirim oleh host. Callback: `{ ok, error? }` |
-| `chat:send` | `{ text }` | Kirim pesan chat (diblokir otomatis kalau fase Malam) |
-| `vote:cast` | `{ targetId }` | Vote pemain lain saat fase Voting |
-| `night:action` | `{ targetId }` | Aksi malam (khusus Werewolf/Seer/Guardian) |
+- `room:update`
+- `game:role`
+- `game:teammates`
+- `phase:change`
+- `phase:tick`
+- `chat:message`
+- `night:result`
+- `night:seerResult`
+- `elimination:reveal`
+- `thief:cards`
+- `cupid:loversAssigned`
+- `hunter:mustShoot`
+- `game:end`
+- `room:kicked`
+- `room:leftBehind`
 
-### Event yang diterima SERVER → CLIENT
+## Catatan implementasi
 
-| Event | Payload | Keterangan |
-|---|---|---|
-| `room:update` | `{ code, hostId, status, players[], minPlayers, maxPlayers }` | Update daftar pemain & status room (dikirim tiap ada perubahan) |
-| `game:role` | `{ role, team, description }` | Dikirim **privat** ke masing-masing socket saat game mulai |
-| `phase:change` | `{ phase, timeLeft }` | Fase baru dimulai: `Malam`, `Diskusi`, `Voting`, `Elimination` |
-| `phase:tick` | `{ timeLeft }` | Countdown tiap detik untuk sinkronisasi timer di UI |
-| `chat:message` | `{ id, sender, text, time, isSystem }` | Pesan chat baru (termasuk pesan sistem) |
-| `night:seerResult` | `{ targetId, targetName, team }` | Dikirim **privat** ke Seer setelah dia mengintip target |
-| `night:result` | `{ eliminated: {id,name,role} \| null }` | Hasil malam (siapa yang mati, atau tidak ada korban) |
-| `vote:update` | `{ voteCount, aliveCount }` | Progres voting real-time (opsional dipakai di UI) |
-| `elimination:reveal` | `{ id, name, role, isWerewolf } \| null` | Hasil voting siang (null kalau suara seri) |
-| `game:end` | `{ winner: 'werewolves'\|'villagers', players[] }` | Game selesai, role semua pemain di-reveal |
+- Backend saat ini masih menggunakan in-memory storage, jadi semua room akan reset saat server restart
+- Role dan gameplay bisa ditambah/dikembangkan lebih lanjut di `src/roles.js` dan `src/Room.js`
+- Flow minimal player dan reconnect behavior masih perlu divalidasi lebih lanjut untuk deployment skala nyata
 
-Struktur payload di atas sengaja dibuat semirip mungkin dengan nama field yang
-sudah dipakai di mock data `WaitingRoom.jsx` dan `GameArea.jsx` (`id`, `name`,
-`status`/`alive`, `role`, dll), supaya nanti tinggal ganti sumber data dari
-`useState` mock jadi state hasil event socket di atas.
+## Produksi / deployment
 
-## Yang masih perlu dikerjakan / catatan
+Untuk deployment production, pastikan:
 
-- **Belum ada persistence** — kalau server restart, semua room & progress hilang.
-  Cukup untuk MVP/demo; kalau nanti mau lanjut ke Redis/DB tinggal ganti isi `RoomManager`.
-- **Role baru** (Witch, Hunter, Cupid, King, dll) belum ada logic-nya — perlu
-  ditambahkan di `src/roles.js` (definisi & rasio) dan `src/Room.js` (night action & efeknya)
-  begitu logic-nya di frontend juga siap.
-- **Belum ada validasi anti-cheat ketat** (misalnya memastikan hanya role yang
-  benar yang bisa emit `night:action` tertentu — ini sudah dicek di server,
-  tapi belum ada rate limiting / anti-spam socket).
-- Durasi tiap fase ada di `src/Room.js` (`PHASE_DURATION`) — sesuaikan dengan
-  timer yang mau dipakai di frontend (saat ini: Malam 45s, Diskusi 60s, Voting 30s, Elimination 8s).
+1. Backend berjalan di proses Node.js yang stabil
+2. CORS `CLIENT_ORIGIN` diset ke URL frontend yang valid
+3. Monitoring dan logging disiapkan untuk menangani disconnect dan room state
+4. Script CI/CD dibutuhkan untuk validasi otomatis sebelum deploy
+
+---
+
+Untuk penggunaan bersama frontend project, lihat [../frontend/README.md](../frontend/README.md).
