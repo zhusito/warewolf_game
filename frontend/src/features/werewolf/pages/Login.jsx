@@ -11,7 +11,7 @@ export default function Login() {
     e.preventDefault();
     if (name.trim()) {
       setPlayerName(name.trim());
-      navigate('/home');
+      navigate('/werewolf/home');
     }
   };
 

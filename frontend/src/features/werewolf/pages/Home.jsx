@@ -8,14 +8,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!playerName) navigate('/');
+    if (!playerName) navigate('/werewolf');
   }, [playerName, navigate]);
 
   const handleCreateRoom = async () => {
     setLoading(true);
     const res = await createRoom(playerName);
     setLoading(false);
-    if (res.ok) navigate('/room');
+    if (res.ok) navigate('/werewolf/room');
   };
 
   return (
@@ -28,7 +28,7 @@ export default function Home() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <button 
-          onClick={() => navigate('/private-room')} 
+          onClick={() => navigate('/werewolf/private-room')} 
           className="btn btn-secondary animate-slide-up stagger-1"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -54,7 +54,7 @@ export default function Home() {
       </div>
 
       <button
-        onClick={() => navigate('/how-to-play')}
+        onClick={() => navigate('/werewolf/how-to-play')}
         className="btn btn-secondary animate-slide-up stagger-3"
         style={{ marginTop: '16px' }}
       >
@@ -66,7 +66,7 @@ export default function Home() {
       </button>
 
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/werewolf')}
         className="btn btn-secondary"
         style={{ marginTop: '12px' }}
       >

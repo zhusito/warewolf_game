@@ -14,13 +14,13 @@ export default function PrivateRoom() {
     setLoading(true);
     const res = await joinRoom(roomKey.trim().toUpperCase(), playerName);
     setLoading(false);
-    if (res.ok) navigate('/room');
+    if (res.ok) navigate('/werewolf/room');
   };
 
   return (
     <div className="glass-panel animate-slide-up" style={{ width: '100%' }}>
       <button 
-        onClick={() => navigate('/home')}
+        onClick={() => navigate('/werewolf/home')}
         style={{ 
           background: 'none', 
           border: 'none', 

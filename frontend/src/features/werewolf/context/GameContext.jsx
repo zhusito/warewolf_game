@@ -1,6 +1,6 @@
 // frontend/src/context/GameContext.jsx
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { socket } from '../socket';
+import { socket } from '../services/socket';
 
 const GameContext = createContext(null);
 

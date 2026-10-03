@@ -13,7 +13,7 @@ export default function Result() {
     return (
       <div className="glass-panel" style={{ width: '100%', textAlign: 'center' }}>
          <p>Data hasil pertandingan tidak ditemukan.</p>
-         <button className="btn btn-primary" onClick={() => navigate('/home')}>Kembali ke Beranda</button>
+         <button className="btn btn-primary" onClick={() => navigate('/werewolf/home')}>Kembali ke Beranda</button>
       </div>
     );
   }
@@ -38,7 +38,7 @@ export default function Result() {
 
   const handlePlayAgain = () => {
     leaveSession();
-    navigate('/home');
+    navigate('/werewolf/home');
   };
 
   return (

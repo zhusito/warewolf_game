@@ -16,11 +16,11 @@ export default function WaitingRoom() {
   const [kickingId, setKickingId] = useState(null);
 
   useEffect(() => {
-    if (!roomCode) navigate('/home');
+    if (!roomCode) navigate('/werewolf/home');
   }, [roomCode, navigate]);
 
   useEffect(() => {
-    if (roomStatus === 'in-progress') navigate('/game');
+    if (roomStatus === 'in-progress') navigate('/werewolf/game');
   }, [roomStatus, navigate]);
 
   // Kalau sebelumnya kena kick / ditinggal, sessionNotice ini bakal keisi lewat
@@ -53,7 +53,7 @@ export default function WaitingRoom() {
   const handleLeave = () => {
     if (confirm('Yakin mau keluar dari room ini?')) {
       leaveSession();
-      navigate('/home');
+      navigate('/werewolf/home');
     }
   };
 

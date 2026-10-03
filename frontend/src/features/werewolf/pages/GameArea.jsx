@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { getRoleImage } from '../roleImages';
-import { playRevealSound, playEliminationSound, playBGM } from '../utils/soundManager';
+import { playRevealSound, playEliminationSound, playBGM } from '../services/soundManager';
 
 const NIGHT_ACTION_ROLES = ['Werewolf', 'Alpha Werewolf', 'Vampire', 'Guardian', 'Seer', 'Witch', 'Cupid', 'Troublemaker'];
 
@@ -43,12 +43,12 @@ export default function GameArea() {
 
   // Redirect kalau tidak ada sesi room aktif
   useEffect(() => {
-    if (!roomCode) navigate('/home');
+    if (!roomCode) navigate('/werewolf/home');
   }, [roomCode, navigate]);
 
   // Pindah ke halaman hasil begitu game selesai
   useEffect(() => {
-    if (gameResult) navigate('/result');
+    if (gameResult) navigate('/werewolf/result');
   }, [gameResult, navigate]);
 
   useEffect(() => {
