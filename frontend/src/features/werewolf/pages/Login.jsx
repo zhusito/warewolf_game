@@ -17,6 +17,18 @@ export default function Login() {
 
   return (
     <div className="glass-panel animate-slide-up" style={{ width: '100%' }}>
+      <button
+        type="button"
+        className="login-back-button"
+        aria-label="Kembali ke Game Hub"
+        title="Kembali ke Game Hub"
+        onClick={() => navigate('/')}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5"></path>
+          <path d="m12 19-7-7 7-7"></path>
+        </svg>
+      </button>
       <div style={{ marginBottom: '32px' }}>
         {/* Placeholder Icon / Logo */}
         <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🐺</div>
