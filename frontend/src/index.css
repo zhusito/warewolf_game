@@ -94,12 +94,21 @@ p {
   top: -40px;
 }
 
+.home-hub-title {
+  position: relative;
+  top: -14px;
+}
+
+.home-hub-action {
+  margin-top: 8px;
+}
+
 .login-back-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   margin: -12px 0 20px -12px;
   padding: 0;
   color: var(--text-muted);

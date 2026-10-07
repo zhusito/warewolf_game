@@ -5,8 +5,8 @@ export default function Home() {
 
   return (
     <div className="glass-panel animate-slide-up home-hub" style={{ width: '100%' }}>
-      <h1>Game Hub</h1>
-      <button className="btn btn-primary" onClick={() => navigate('/werewolf')}>
+      <h1 className="home-hub-title">Game Hub</h1>
+      <button className="btn btn-primary home-hub-action" onClick={() => navigate('/werewolf')}>
         Werewolf MBTI
       </button>
     </div>
