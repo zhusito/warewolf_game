@@ -1,20 +1,20 @@
 # Game Werewolf MBTI — Fullstack
 
-Monorepo untuk game Werewolf multiplayer berbasis browser dengan arsitektur fullstack:
+Monorepo untuk Game Hub berbasis browser dan game Werewolf multiplayer:
 
-- `backend/` — server Node.js + Express + Socket.io untuk room, lobby, game state, dan timer server-side
-- `frontend/` — aplikasi React + Vite untuk UI login, waiting room, game area, dan result screen
+- `frontend/` — aplikasi React + Vite. Game Hub ada di `/`; game Werewolf berada di `/werewolf/*`.
+- `backend/` — server Node.js + Express + Socket.io untuk room, lobby, game state, dan timer server-side.
 
 ## Ringkasan project
 
-Project ini mengimplementasikan gameplay Werewolf dengan alur real-time multiplayer:
+Game Werewolf mengimplementasikan gameplay real-time multiplayer:
 
 - Buat room dan join room dengan kode room
 - Lobby dengan ready check dan host-controlled start
-- Fase malam, diskusi, voting, eliminasi, dan menang otomatis
+- Fase Malam, Diskusi, Voting, Elimination, dan penentuan kemenangan
 - Chat in-game, role assignment, night actions, serta reveal hasil akhir
 - Reconnect session dan leave room
-- Mode deploy terpisah maupun single-service deployment (backend bisa serve frontend build hasil produksi)
+- Deployment frontend/backend terpisah atau satu layanan (backend menyajikan build frontend dari `backend/public/`)
 
 ## Struktur folder
 
@@ -36,12 +36,11 @@ gamembti-fullstack/
 │   ├── index.html
 │   ├── public/
 │   └── src/
-└── package.json (jika ada di masa depan)
 ```
 
 ## Persyaratan
 
-- Node.js 18+
+- Node.js 20.19+ atau 22.12+ untuk Vite 8
 - npm
 - 2 terminal terpisah untuk development
 
@@ -79,7 +78,7 @@ Frontend biasanya berjalan di:
 
 - `http://localhost:5173`
 
-Buka URL tersebut di browser, lalu buat room baru atau join room teman.
+Buka URL tersebut di browser. Pilih Werewolf MBTI di Game Hub, masukkan nama pemain, lalu buat room baru atau join room teman. Tombol Game Lainnya di hub saat ini masih berupa tautan placeholder `#`.
 
 ## Variabel environment
 
@@ -104,7 +103,7 @@ File: `frontend/.env`
 VITE_BACKEND_URL=http://localhost:3001
 ```
 
-- `VITE_BACKEND_URL` = URL Socket.io backend yang digunakan UI
+- `VITE_BACKEND_URL` = URL Socket.io backend yang digunakan UI (default lokal: `http://localhost:3001`)
 
 ## Fitur yang tersedia saat ini
 
@@ -112,10 +111,11 @@ VITE_BACKEND_URL=http://localhost:3001
 - Room create & join dengan kode room
 - Ready check sebelum game mulai
 - Host-only start game
-- Role assignment otomatis untuk berbagai role di backend
-- Fase permainan: malam, diskusi, voting, eliminasi
+- 7–30 pemain per room; minimal 7 pemain ready untuk memulai. Pemain yang belum ready dikeluarkan saat host memulai game.
+- Role assignment otomatis dari tim Werewolf, Vampire, dan Villager; pasangan Lovers juga dapat menang bersama
+- Fase permainan: Malam, Diskusi, Voting, dan Elimination
 - Chat dan voting real-time
-- Night action untuk role tertentu seperti werewolf, seer, guardian, hunter, thief
+- Aksi malam dan kemampuan role seperti Werewolf, Vampire, Seer, Guardian, Witch, Hunter, Cupid, King, Troublemaker, dan Thief
 - Rejoin session setelah refresh atau reconnect
 - Leave room dan kick player oleh host
 - Result screen akhir
@@ -143,7 +143,7 @@ Backend sebaiknya di-deploy ke layanan yang mendukung Node.js long-running proce
 
 ### Frontend
 
-Frontend bisa di-deploy ke Vercel atau Netlify dengan build normal:
+Frontend dapat di-deploy terpisah ke Vercel atau Netlify dengan build normal:
 
 ```bash
 cd frontend
@@ -155,6 +155,8 @@ Setelah deploy:
 - backend `.env` → `CLIENT_ORIGIN` isi URL frontend produksi
 - frontend `.env` → `VITE_BACKEND_URL` isi URL backend produksi
 
+Untuk deployment satu layanan, build frontend lalu salin isi `frontend/dist/` ke `backend/public/` sebelum menjalankan backend. Jika folder itu tersedia, backend otomatis menyajikan file statis dan mengarahkan route frontend ke `index.html`.
+
 ## Catatan penting
 
 - State room dan game saat ini disimpan in-memory di backend, jadi data akan hilang saat server restart
@@ -163,14 +165,7 @@ Setelah deploy:
 
 ## Status proyek
 
-Project ini sudah cukup layak untuk development lokal dan test multiplayer internal. Untuk deployment mult-user nyata, masih disarankan untuk melakukan testing end-to-end terlebih dahulu, terutama untuk:
-
-- room ownership / disconnect behavior
-- rejoin dan duplicate player
-- minimum player validation
-- leave room dan kick flow
-- ready-state visibility di waiting room
-- session persistence antar tab/device
+Room dan game state disimpan di memory backend dan hilang saat server restart. Sebelum deployment untuk banyak pengguna, uji end-to-end terutama pada reconnect, perpindahan host, dan sesi lintas tab/perangkat.
 
 Jika ingin lanjut ke production, langkah selanjutnya yang disarankan adalah:
 

@@ -9,6 +9,9 @@ export default function Home() {
       <button className="btn btn-primary home-hub-action" onClick={() => navigate('/werewolf')}>
         Werewolf MBTI
       </button>
+      <a className="btn btn-secondary home-hub-action" href="https://forms.gle/268aitxujDhYiJTU9">
+        Survey music preference
+      </a>
     </div>
   );
 }
