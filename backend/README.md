@@ -1,154 +1,117 @@
-# Werewolf Backend
+# Backend Game Werewolf MBTI
 
-Backend untuk game Werewolf multiplayer yang dibuat dengan Node.js, Express, dan Socket.io.
-State room dan permainan disimpan di memory server dan hilang saat server restart.
+Server Node.js untuk room multiplayer, state game, aturan role, chat, dan timer fase. Room dan seluruh state disimpan di memori proses; semuanya hilang saat server restart.
 
-## Fitur utama
+## Stack dan scripts
 
-- Buat room dan join room dengan kode room
-- Batas 7–30 pemain per room; minimal 7 pemain ready untuk memulai
-- Lobby dengan status ready dan host-controlled start
-- Pemain yang belum ready dikeluarkan dari room saat host memulai game
-- Host bisa kick player
-- Player bisa leave room secara sengaja
-- Reconnect / rejoin session jika koneksi terputus
-- Timer fase server-side untuk game loop
-- Event chat, vote, night action, dan eliminasi
-- Auto win condition untuk Werewolves, Vampires, Villagers, dan Lovers
-- Support room cleanup saat disconnect grace period habis
-- Opsi melayani build frontend production dari `backend/public/`
+- Node.js, Express, Socket.IO, dan CORS
+- `npm start` — jalankan server
+- `npm run dev` — jalankan dengan `node --watch`
+- `npm run test:sim` — jalankan simulasi 20 pemain (server harus sudah berjalan)
 
-Durasi fase normal: Malam 45 detik, Diskusi 60 detik, Voting 30 detik, Elimination 8 detik. Set `FAST_PHASES=1` untuk simulasi/testing (4, 3, 3, dan 2 detik).
+Gunakan Node.js 20.19+ atau 22.12+ agar sesuai dengan toolchain Vite frontend.
 
-## Stack
+## Menjalankan lokal
 
-- Node.js
-- Express
-- Socket.io
-- CORS
-
-Gunakan Node.js 20.19+ atau 22.12+ untuk mendukung toolchain frontend Vite 8.
-
-## Menjalankan backend
-
-```bash
+```powershell
 cd backend
 npm install
-cp .env.example .env
+Copy-Item .env.example .env
 npm start
 ```
 
-Server berjalan di:
+Server menggunakan `http://localhost:3001` secara default. Health check tersedia di `http://localhost:3001/health` dan mengembalikan `{ "ok": true }`.
 
-- `http://localhost:3001`
-
-Untuk mengecek server hidup:
-
-```bash
-curl http://localhost:3001/health
-```
-
-## Environment
-
-File `backend/.env`:
+Environment pada `backend/.env`:
 
 ```env
 PORT=3001
 CLIENT_ORIGIN=*
 ```
 
-Penjelasan:
+- `PORT` — port HTTP dan Socket.IO (default `3001`).
+- `CLIENT_ORIGIN` — origin yang diizinkan oleh CORS. Untuk deployment, isi dengan origin frontend yang digunakan.
 
-- `PORT` = port yang dipakai server
-- `CLIENT_ORIGIN` = origin frontend yang diizinkan oleh CORS
+## Aturan game
 
-Untuk production, ganti `CLIENT_ORIGIN` menjadi URL frontend yang benar.
+- Kode room terdiri dari enam karakter. Kapasitas room 30 pemain; game dapat dimulai jika setidaknya 7 pemain siap.
+- Hanya host yang dapat memulai game atau kick pemain. Pemain yang belum siap ditinggalkan dari room ketika host memulai.
+- Durasi fase normal: Malam 45 detik, Diskusi 60 detik, Voting 30 detik, Elimination 8 detik. Fase voting dapat selesai lebih awal setelah semua pemain hidup memilih. Jika suara tertinggi seri, tidak ada pemain yang dieliminasi.
+- Dengan `FAST_PHASES=1`, fase menjadi 4/3/3/2 detik (Malam/Diskusi/Voting/Elimination).
+- Pemain yang terputus di lobby dihapus setelah grace period 20 detik jika belum kembali. Pemain yang terputus saat game tidak langsung dihapus dan dapat rejoin dengan sesi yang sama.
+- Siang hari, pemain hidup dapat memakai chat umum. Saat malam, tim Werewolf/Vampire memiliki chat rahasia bersama. Pemain mati hanya dapat chat dengan pemain mati lainnya.
+- Role diacak berdasarkan jumlah pemain. Role yang mungkin: Werewolf, Alpha Werewolf, Vampire, Cursed, Lycan, Strong Villager, Guardian, Seer, Witch, Hunter, Cupid, King, Troublemaker, Thief, dan Villager.
+- Vampire menang jika masih ada Vampire dan jumlah Vampire hidup setidaknya sama dengan semua pemain hidup non-Vampire. Werewolf menang jika jumlah Werewolf hidup setidaknya sama dengan gabungan tim lain. Villager menang jika Werewolf dan Vampire habis. Lovers menang jika menjadi dua pemain terakhir.
 
-## Testing
+## Simulasi game
 
-Ada script simulasi game end-to-end yang menjalankan 20 pemain simulasi melalui socket.io-client:
+Di terminal pertama, jalankan server dengan fase cepat:
 
-```bash
+```powershell
+$env:FAST_PHASES = "1"
+npm start
+```
+
+Di terminal kedua, dari folder `backend/`:
+
+```powershell
+npm install
 npm run test:sim
 ```
 
-Jalankan server dengan fase singkat di satu terminal, lalu jalankan simulasi pada terminal lain:
+Simulasi terhubung ke `http://localhost:3001`, menjalankan 20 pemain melalui room dan fase permainan, lalu mencatat event game di terminal. Hentikan server setelah simulasi selesai.
 
-```bash
-FAST_PHASES=1 npm start
-```
+## CI/CD
 
-## Struktur project
+Workflow GitHub Actions berada di `.github/workflows/backend-cicd.yml`. Untuk pull request dan push ke `main` yang mengubah backend, workflow menginstal dependency, memeriksa `/health`, lalu menjalankan simulasi game. Push yang berhasil ke `main` juga mengirim backend beserta production dependencies ke cPanel melalui FTPS dan meminta Passenger memulai ulang aplikasi.
 
-```bash
-backend/
-├── .env.example
-├── package.json
-├── server.js
-├── src/
-│   ├── Room.js
-│   ├── RoomManager.js
-│   └── roles.js
-├── tests/
-│   └── simulate-full-game.js
-└── README.md
-```
+Atur GitHub Actions secrets berikut:
 
-## Socket events
+- `CPANEL_FTP_SERVER` — hostname FTP cPanel.
+- `CPANEL_FTP_USERNAME` — username FTP.
+- `CPANEL_FTP_PASSWORD` — password FTP.
+
+FTP user harus dapat menulis ke `/api.allunayah.my.id/warewolf/` (folder `/home/allunaya/api.allunayah.my.id/warewolf` pada File Manager cPanel) dan root FTP harus mengarah ke `/home/allunaya`. Folder tersebut harus menjadi application root Node.js App cPanel. Atur startup file ke `server.js` dan versi Node.js ke `20.20.2` atau versi kompatibel. Atur `CLIENT_ORIGIN` sebagai environment variable aplikasi di cPanel. File `.env` tidak dikirim saat deployment; jangan simpan kredensial deployment di repository.
+
+## Socket.IO events
+
+Event masuk/keluar menggunakan Socket.IO. Aksi `room:create`, `room:join`, `room:rejoin`, `room:leave`, `player:kick`, dan `game:start` dapat menggunakan callback acknowledgement; operasi yang memiliki hasil mengembalikan `{ ok: true, ... }` atau `{ ok: false, error }`.
 
 ### Client ke server
 
-- `room:create` → `{ playerName }`
-- `room:join` → `{ roomCode, playerName }`
-- `room:rejoin` → `{ roomCode, playerId }`
-- `room:leave` → tanpa payload
-- `player:ready` → tanpa payload
-- `player:kick` → `{ targetId }`
-- `game:start` → tanpa payload
-- `chat:send` → `{ text }`
-- `vote:cast` → `{ targetId }`
-- `night:action` → `{ ...payload }`
-- `thief:choice` → `{ cardIndex }`
-- `hunter:shoot` → `{ targetId }`
+| Event | Payload |
+|---|---|
+| `room:create` | `{ playerName }` |
+| `room:join` | `{ roomCode, playerName }` |
+| `room:rejoin` | `{ roomCode, playerId }` |
+| `room:leave` | Tidak ada |
+| `player:ready` | Tidak ada |
+| `player:kick` | `{ targetId }` |
+| `game:start` | Tidak ada |
+| `chat:send` | `{ text }` |
+| `vote:cast` | `{ targetId }` |
+| `night:action` | Payload aksi role; dapat berisi `targetId`, `targetIdB`, dan `action` |
+| `thief:choice` | `{ cardIndex }` (`0` atau `1`) |
+| `hunter:shoot` | `{ targetId }` |
 
 ### Server ke client
 
-- `room:update`
-- `game:role`
-- `game:teammates`
-- `phase:change`
-- `phase:tick`
-- `chat:message`
-- `night:result`
-- `night:seerResult`
-- `elimination:reveal`
-- `thief:cards`
-- `cupid:loversAssigned`
-- `hunter:mustShoot`
-- `game:end`
-- `room:kicked`
-- `room:leftBehind`
-- `vote:update`
-- `lover:heartbreak`
-- `hunter:shotResult`
+| Event | Penggunaan |
+|---|---|
+| `room:update` | Status room dan daftar pemain |
+| `room:kicked`, `room:leftBehind` | Notifikasi pemain dikeluarkan dari room |
+| `game:role`, `game:teammates` | Role dan rekan satu tim, dikirim secara privat |
+| `thief:cards`, `cupid:loversAssigned` | Informasi privat untuk kemampuan role |
+| `phase:change`, `phase:tick` | Fase aktif, ronde, dan timer |
+| `chat:message` | Pesan sistem/chat yang diterima oleh pemain |
+| `night:seerResult`, `night:result` | Hasil kemampuan Seer dan resolusi malam |
+| `vote:update`, `elimination:reveal` | Progress voting dan hasil eliminasi |
+| `hunter:mustShoot`, `hunter:shotResult` | Kesempatan Hunter menembak dan hasilnya |
+| `lover:heartbreak` | Pasangan yang ikut mati karena efek Lovers |
+| `game:end` | Pemenang dan daftar hasil pemain |
 
-## Catatan implementasi
+## Serving frontend
 
-- Backend saat ini masih menggunakan in-memory storage, jadi semua room akan reset saat server restart
-- Role dan gameplay bisa ditambah/dikembangkan lebih lanjut di `src/roles.js` dan `src/Room.js`
-- Fitur serving frontend aktif jika folder `backend/public/` tersedia; semua route selain `/health` diarahkan ke `index.html`
+Untuk deployment satu layanan, build frontend lalu salin isi `frontend/dist/` ke `backend/public/`. Jika direktori tersebut tersedia saat backend dimulai, Express menyajikan file statis dan mengarahkan route lain selain `/health` ke `index.html`.
 
-## Produksi / deployment
-
-Untuk deployment production, pastikan:
-
-1. Backend berjalan di proses Node.js yang stabil
-2. CORS `CLIENT_ORIGIN` diset ke URL frontend yang valid
-3. Monitoring dan logging disiapkan untuk menangani disconnect dan room state
-4. Script CI/CD dibutuhkan untuk validasi otomatis sebelum deploy
-
-Untuk satu layanan dengan frontend, build frontend dan salin isi `frontend/dist/` ke `backend/public/` sebelum menjalankan backend. Jika frontend dipisah, set `VITE_BACKEND_URL` di konfigurasi frontend dan `CLIENT_ORIGIN` di backend ke URL yang sesuai.
-
----
-
-Untuk penggunaan bersama frontend project, lihat [../frontend/README.md](../frontend/README.md).
+Untuk deployment terpisah, atur `VITE_BACKEND_URL` pada frontend ke URL backend dan `CLIENT_ORIGIN` pada backend ke origin frontend. Panduan lengkap ada di [README proyek](../README.md) dan [README frontend](../frontend/README.md).

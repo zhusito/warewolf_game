@@ -1,118 +1,70 @@
-# Game MBTI Frontend
+# Frontend Game Werewolf MBTI
 
-Aplikasi frontend React + Vite untuk Game Hub dan game Werewolf multiplayer. UI Werewolf terhubung ke backend Socket.io untuk login, lobby, game flow, dan hasil akhir.
-
-## Fitur utama
-
-- Game Hub di `/` dengan tombol Werewolf MBTI dan tombol Game Lainnya (tautan placeholder `#`)
-- Login player dan masuk ke menu Werewolf
-- Create room dan join room private
-- Waiting room dengan status ready dan host controls
-- Game area untuk fase malam, diskusi, voting, dan eliminasi
-- Result screen dan panduan bermain
-- Audio/BGM support di beberapa screen
-- Integrasi dengan `socket.io-client` untuk komunikasi real-time
-- Reconnect dan rejoin session setelah refresh
+Aplikasi web Game Hub dan Werewolf multiplayer. Frontend menangani tampilan dan navigasi; room, fase, timer, serta hasil permainan dikelola backend melalui Socket.IO.
 
 ## Stack
 
 - React 19
 - Vite 8
 - React Router 7
-- Socket.io Client
-
-## Menjalankan frontend
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
+- Socket.IO Client 4
 
 Gunakan Node.js 20.19+ atau 22.12+ untuk Vite 8.
 
-Frontend biasanya akan berjalan di:
+## Menjalankan lokal
 
-- `http://localhost:5173`
+Jalankan backend terlebih dahulu mengikuti [petunjuk backend](../backend/README.md), lalu di terminal frontend:
 
-## Environment
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
 
-File `frontend/.env`:
+Buka URL yang ditampilkan Vite, biasanya `http://localhost:5173`.
+
+Konfigurasi `frontend/.env`:
 
 ```env
 VITE_BACKEND_URL=http://localhost:3001
 ```
 
-Gunakan URL backend yang sesuai jika development atau production dipisah.
+Variabel ini menentukan URL Socket.IO backend. Nilai tersebut dibaca saat frontend dijalankan atau dibangun.
 
-## Struktur project
+## Halaman
 
-```bash
-frontend/
-├── .env.example
-├── eslint.config.js
-├── index.html
-├── package.json
-├── public/
-├── src/
-│   ├── App.jsx
-│   ├── App.css
-│   ├── index.css
-│   ├── main.jsx
-│   └── features/
-│       ├── home/
-│       │   └── pages/Home.jsx
-│       └── werewolf/
-│           ├── WerewolfApp.jsx
-│           ├── assets/
-│           ├── context/GameContext.jsx
-│           ├── pages/
-│           ├── roleImages.js
-│           └── services/
-│               ├── socket.js
-│               └── soundManager.js
-├── vercel.json
-├── vite.config.js
-└── README.md
-```
+- `/` — Game Hub, dengan tautan ke Werewolf MBTI dan survey preferensi musik.
+- `/werewolf` — login dan pengaturan username.
+- `/werewolf/home` — buat room atau pilih bergabung dengan room privat; tautan ke panduan bermain.
+- `/werewolf/private-room` — bergabung menggunakan kode room.
+- `/werewolf/room` — lobby, status siap, dan kontrol host.
+- `/werewolf/game` — fase game, chat, voting, dan aksi role.
+- `/werewolf/result` — hasil game.
+- `/werewolf/how-to-play` — aturan, fase, tim, dan role.
 
-## Routing utama
+## Perilaku yang tersedia
 
-- `/` → Game Hub
-- `/werewolf` → Login Werewolf
-- `/werewolf/home` → Menu pilih mode
-- `/werewolf/private-room` → Bergabung dengan kode room
-- `/werewolf/room` → Waiting room
-- `/werewolf/game` → Game area
-- `/werewolf/result` → Hasil permainan
-- `/werewolf/how-to-play` → Panduan bermain
+- Koneksi real-time ke backend dengan Socket.IO.
+- Nama, kode room, dan ID pemain disimpan di `localStorage`; sesi dicoba untuk di-rejoin saat halaman dimuat ulang.
+- Notifikasi saat pemain di-kick atau ditinggal host karena belum siap.
+- Efek audio dan musik latar pada menu, fase permainan, serta layar hasil.
+- UI dan aset role berada di `src/features/werewolf/`; logika state dan event socket berada di `context/GameContext.jsx`.
 
-## Build production
+## Build, lint, dan preview
 
-```bash
-cd frontend
+```powershell
+npm run lint
 npm run build
+npm run preview
 ```
 
-Output build akan dibuat ke folder `dist/`.
+Build production dibuat di `dist/`. Konfigurasi `vercel.json` mengarahkan semua route ke `index.html` agar routing client-side dapat dimuat langsung.
 
 ## Deployment
 
-Frontend bisa dideploy ke:
+Frontend dapat dideploy ke Vercel, Netlify, atau static hosting yang mendukung aplikasi Vite dan fallback ke `index.html`. Atur `VITE_BACKEND_URL` ke URL backend production sebelum build, dan pastikan backend mengizinkan origin frontend melalui `CLIENT_ORIGIN`.
 
-- Vercel
-- Netlify
-- static hosting lain yang mendukung build Vite
+Untuk menyajikan frontend dan backend dari satu layanan, build frontend lalu salin isi `dist/` ke `backend/public/`. Backend akan melayani file hasil build dan fallback route ke `index.html`.
 
-Pastikan `VITE_BACKEND_URL` diubah ke URL backend produksi sebelum build. Untuk deployment satu layanan, salin isi `dist/` ke `backend/public/`; backend akan menyajikan build tersebut dan menangani fallback route.
-
-## Catatan
-
-- UI sudah terhubung ke backend real-time dan tidak lagi mengandalkan data mock untuk flow utama
-- Masih ada beberapa kebutuhan QA/validasi manual terkait reconnect, room flow, dan session handling pada deployment nyata
-- Untuk detail backend, lihat [../backend/README.md](../backend/README.md)
-
----
-
-Untuk dokumentasi proyek secara keseluruhan, lihat [../README.md](../README.md).
+Untuk penyiapan fullstack dan aturan game, lihat [README proyek](../README.md) dan [README backend](../backend/README.md).

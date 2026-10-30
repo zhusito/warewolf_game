@@ -1,0 +1,98 @@
+name: Backend CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-cicd.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-cicd.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Check health and simulate a game
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          FAST_PHASES=1 PORT=3001 npm start > "$RUNNER_TEMP/backend.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3001/health; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat "$RUNNER_TEMP/backend.log"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          npm run test:sim
+
+  deploy:
+    name: Deploy backend to cPanel
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Prepare production files
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          npm ci --omit=dev
+          mkdir -p ../backend-deploy/tmp
+          cp package.json package-lock.json server.js ../backend-deploy/
+          cp -R src node_modules ../backend-deploy/
+          date -u +%s > ../backend-deploy/tmp/restart.txt
+
+      - name: Upload files over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: backend-deploy/
+          server-dir: /api.allunayah.my.id/warewolf/
+          exclude: |
+            **/.git*
+            **/.git*/**

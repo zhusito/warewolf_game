@@ -1,182 +1,87 @@
-# Game Werewolf MBTI — Fullstack
+# Game Werewolf MBTI
 
-Monorepo untuk Game Hub berbasis browser dan game Werewolf multiplayer:
+Monorepo untuk Game Hub browser dan game Werewolf multiplayer real-time.
 
-- `frontend/` — aplikasi React + Vite. Game Hub ada di `/`; game Werewolf berada di `/werewolf/*`.
-- `backend/` — server Node.js + Express + Socket.io untuk room, lobby, game state, dan timer server-side.
+- `frontend/` — UI React 19, Vite 8, React Router, dan Socket.IO Client.
+- `backend/` — server Node.js, Express, dan Socket.IO; mengelola room, pemain, fase, serta aturan permainan.
 
-## Ringkasan project
-
-Game Werewolf mengimplementasikan gameplay real-time multiplayer:
-
-- Buat room dan join room dengan kode room
-- Lobby dengan ready check dan host-controlled start
-- Fase Malam, Diskusi, Voting, Elimination, dan penentuan kemenangan
-- Chat in-game, role assignment, night actions, serta reveal hasil akhir
-- Reconnect session dan leave room
-- Deployment frontend/backend terpisah atau satu layanan (backend menyajikan build frontend dari `backend/public/`)
-
-## Struktur folder
-
-```bash
-gamembti-fullstack/
-├── README.md
-├── backend/
-│   ├── README.md
-│   ├── .env.example
-│   ├── package.json
-│   ├── server.js
-│   ├── src/
-│   └── tests/
-├── frontend/
-│   ├── README.md
-│   ├── .env.example
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── index.html
-│   ├── public/
-│   └── src/
-```
+Semua dokumentasi menggunakan kondisi implementasi saat ini. Untuk detail komponen, lihat [frontend/README.md](frontend/README.md) dan [backend/README.md](backend/README.md).
 
 ## Persyaratan
 
-- Node.js 20.19+ atau 22.12+ untuk Vite 8
+- Node.js 20.19+ atau 22.12+ (persyaratan Vite 8)
 - npm
-- 2 terminal terpisah untuk development
+- Browser modern
 
-## Cara menjalankan development
+## Menjalankan secara lokal
 
-### 1) Backend
+Jalankan backend dan frontend di dua terminal terpisah.
 
-```bash
+### Backend
+
+```powershell
 cd backend
 npm install
-cp .env.example .env
+Copy-Item .env.example .env
 npm start
 ```
 
-Server backend akan berjalan di:
+Server berjalan pada `http://localhost:3001` secara default. Periksa statusnya di `http://localhost:3001/health`.
 
-- `http://localhost:3001`
+### Frontend
 
-Cek health check:
-
-```bash
-curl http://localhost:3001/health
-```
-
-### 2) Frontend
-
-```bash
+```powershell
 cd frontend
 npm install
-cp .env.example .env
+Copy-Item .env.example .env
 npm run dev
 ```
 
-Frontend biasanya berjalan di:
+Buka URL yang ditampilkan Vite (biasanya `http://localhost:5173`). Isi lokal pada `frontend/.env` menunjuk ke backend `http://localhost:3001`.
 
-- `http://localhost:5173`
+Di Game Hub, pilih **Werewolf MBTI**. Masukkan nama, buat room, atau bergabung dengan kode room teman. Opsi **Survey music preference** membuka formulir eksternal.
 
-Buka URL tersebut di browser. Pilih Werewolf MBTI di Game Hub, masukkan nama pemain, lalu buat room baru atau join room teman. Tombol Game Lainnya di hub saat ini masih berupa tautan placeholder `#`.
+## Fitur game
 
-## Variabel environment
+- Room privat dengan kode enam karakter; maksimal 30 pemain dan minimal 7 pemain siap untuk memulai.
+- Host dapat memulai game dan mengeluarkan pemain dari lobby. Pemain yang belum siap saat game dimulai akan dikeluarkan.
+- Fase Malam, Diskusi, Voting, dan Elimination; aksi dan timer dikelola server.
+- Chat siang, chat tim jahat saat malam, serta kanal terpisah untuk pemain yang sudah mati.
+- Role dan kemampuan: Werewolf, Alpha Werewolf, Vampire, Cursed, Lycan, Strong Villager, Guardian, Seer, Witch, Hunter, Cupid, King, Troublemaker, Thief, dan Villager. Role yang dibagikan bergantung pada jumlah pemain.
+- Reconnect/rejoin menggunakan sesi yang tersimpan di browser. Pemain yang terputus di lobby mendapat grace period 20 detik; selama game berlangsung, pemain tidak langsung dihapus.
+- Kondisi menang untuk tim Werewolf, Vampire, Villager, atau sepasang Lovers yang menjadi dua pemain terakhir.
 
-### Backend
+Room dan game state disimpan di memori backend; restart server akan menghapus semua room.
 
-File: `backend/.env`
+## Pengujian dan build
 
-```env
-PORT=3001
-CLIENT_ORIGIN=*
-```
-
-- `PORT` = port server backend
-- `CLIENT_ORIGIN` = origin frontend yang diizinkan untuk CORS
-- Untuk deploy production, isi dengan URL frontend yang benar, bukan `*`
-
-### Frontend
-
-File: `frontend/.env`
-
-```env
-VITE_BACKEND_URL=http://localhost:3001
-```
-
-- `VITE_BACKEND_URL` = URL Socket.io backend yang digunakan UI (default lokal: `http://localhost:3001`)
-
-## Fitur yang tersedia saat ini
-
-- Lobby room multiplayer real-time
-- Room create & join dengan kode room
-- Ready check sebelum game mulai
-- Host-only start game
-- 7–30 pemain per room; minimal 7 pemain ready untuk memulai. Pemain yang belum ready dikeluarkan saat host memulai game.
-- Role assignment otomatis dari tim Werewolf, Vampire, dan Villager; pasangan Lovers juga dapat menang bersama
-- Fase permainan: Malam, Diskusi, Voting, dan Elimination
-- Chat dan voting real-time
-- Aksi malam dan kemampuan role seperti Werewolf, Vampire, Seer, Guardian, Witch, Hunter, Cupid, King, Troublemaker, dan Thief
-- Rejoin session setelah refresh atau reconnect
-- Leave room dan kick player oleh host
-- Result screen akhir
-
-## Cara main
-
-1. Buka frontend di browser
-2. Masukkan nama player
-3. Salah satu pemain buat room baru
-4. Pemain lain menggunakan menu Private Room dan kode room
-5. Pastikan semua pemain ready
-6. Host memulai game
-7. Ikuti alur permainan sampai hasil akhir muncul
-
-## Deployment
-
-### Backend
-
-Backend sebaiknya di-deploy ke layanan yang mendukung Node.js long-running process, seperti:
-
-- Railway
-- Render
-- Fly.io
-- VPS
-
-### Frontend
-
-Frontend dapat di-deploy terpisah ke Vercel atau Netlify dengan build normal:
-
-```bash
+```powershell
 cd frontend
+npm run lint
 npm run build
 ```
 
-Setelah deploy:
+Simulasi backend menjalankan 20 pemain Socket.IO dan membutuhkan backend yang sedang berjalan. Di terminal backend, jalankan:
 
-- backend `.env` → `CLIENT_ORIGIN` isi URL frontend produksi
-- frontend `.env` → `VITE_BACKEND_URL` isi URL backend produksi
+```powershell
+cd backend
+$env:FAST_PHASES = "1"
+npm start
+```
 
-Untuk deployment satu layanan, build frontend lalu salin isi `frontend/dist/` ke `backend/public/` sebelum menjalankan backend. Jika folder itu tersedia, backend otomatis menyajikan file statis dan mengarahkan route frontend ke `index.html`.
+Di terminal lain:
 
-## Catatan penting
+```powershell
+cd backend
+npm run test:sim
+```
 
-- State room dan game saat ini disimpan in-memory di backend, jadi data akan hilang saat server restart
-- Project masih cocok untuk MVP / demo / internal test sebelum produksi penuh
-- Untuk environment production, perlu pertimbangan tambahan seperti persist database, monitoring, CI/CD, dan anti-bug pada room/session management
+`FAST_PHASES=1` memperpendek fase menjadi 4 detik malam, 3 detik diskusi, 3 detik voting, dan 2 detik eliminasi. Hapus variabel tersebut atau buka terminal baru untuk kembali ke durasi normal.
 
-## Status proyek
+## Deployment
 
-Room dan game state disimpan di memory backend dan hilang saat server restart. Sebelum deployment untuk banyak pengguna, uji end-to-end terutama pada reconnect, perpindahan host, dan sesi lintas tab/perangkat.
+- Frontend dapat dibangun dengan `npm run build` di `frontend/` dan dideploy ke static hosting. Set `VITE_BACKEND_URL` ke URL backend sebelum build.
+- Backend membutuhkan proses Node.js yang terus berjalan. Set `CLIENT_ORIGIN` ke origin frontend untuk konfigurasi CORS; `PORT` mengatur port server (default `3001`).
+- Untuk satu layanan, salin isi `frontend/dist/` ke `backend/public/` setelah build. Jika folder tersebut ada, backend menyajikan file statis dan fallback route frontend.
 
-Jika ingin lanjut ke production, langkah selanjutnya yang disarankan adalah:
-
-- validasi flow manual penuh di browser multi-tab
-- menambahkan CI/CD sederhana
-- menguji edge case koneksi dan disconnect dengan beberapa pemain
-- mempertimbangkan pengurangan minimum player atau rule custom untuk room
-
----
-
-Dokumentasi lebih detail untuk masing-masing bagian ada di:
-
-- [backend/README.md](backend/README.md)
-- [frontend/README.md](frontend/README.md)
+Contoh variabel backend tersedia di `backend/.env.example`, sedangkan variabel frontend di `frontend/.env.example`.
