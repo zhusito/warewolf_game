@@ -92,7 +92,7 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: backend-deploy/
-          server-dir: /api.allunayah.my.id/warewolf/
+          server-dir: /warewolf/
           exclude: |
             **/.git*
             **/.git*/**
